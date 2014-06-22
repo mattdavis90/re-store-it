@@ -2,37 +2,102 @@
 
 import argparse
 import sys
+import os
 import logging
+import ConfigParser
+import signal
+import threading
+from time import sleep
 
+from servermode import ServerMode
+from clientmode import ClientMode
 
 VERSION = 'v0.1.0'
 
 class ReStoreIt(object):
     def __init__(self, config_file):
-        # Parse config file
-        pass
+        self._config = ConfigParser.ConfigParser()
+        
+        logging.debug('Loading config file')
+
+        self._config.readfp(open(config_file))
+
+        logging.debug('Performing basic check on config file')
+
+        if not self._config.has_section('general'):
+            raise RuntimeError("Config file requires a 'general' section")
+
+        if not self._config.has_option('general', 'mode'):
+            raise RuntimeError('Run mode not specified in config file')
+
+        self._mode = self._config.get('general', 'mode')
+        
+        if self._mode == 'server':
+            self._runner = ServerMode(self._config)
+        elif self._mode == 'client':
+            self._runner = ClientMode(self._config)
+        else:
+            raise RuntimeError('Invalid run mode in config file')
+
+        logging.debug('Basic config checks passed')
 
     def run(self):
-        # Start in desired mode
-        logging.info('Starting re-store-it')
+        logging.info('Starting re-store-it in %s mode' % self._mode)
+        
+        self._thread = threading.Thread(target=self._runner.run)
+        self._thread.start()
+
+        logging.info('Started successfully')
+        logging.info('Running...')
+
+    def stop(self, signum, frame):
+        logging.info('Stopping re-store-it')
+
+        stop_thread = threading.Thread(target=self._runner.stop)
+        stop_thread.start()
+        
+        self._thread.join()
+        stop_thread.join()
+
+    def thread_ok(self):
+        return self._thread.is_alive()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('-v', '--verbose', action='store_const', const='DEBUG', default='WARNING', help='enable verbose output')
+    parser.add_argument('-v', '--verbose', action='store_const', const='DEBUG', default='INFO', help='enable verbose output')
     parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE', help='specify a log file. Default: stdout')
     parser.add_argument('config_file', metavar='CONFIGFILE', help='the config file to use')
 
     args = parser.parse_args()
 
     log_level = getattr(logging, args.verbose)
-    logger_config = {'level': log_level, 'format':'[%(levelname)s] - %(asctime)s - %(message)s'}
+    logger_config = {'level': log_level, 'format':'[%(levelname)s]\t- %(asctime)s - %(message)s'}
 
     if args.log_file:
         logger_config['filename']=args.log_file
     
     logging.basicConfig(**logger_config)
 
-    restoreit = ReStoreIt(args.config_file)
-    restoreit.run()
+    if not os.path.exists(args.config_file):
+        logging.error('Config file not found')
+        sys.exit(1)
+
+    try:
+        restoreit = ReStoreIt(args.config_file)
+
+        signal.signal(signal.SIGINT, restoreit.stop)
+        signal.signal(signal.SIGTERM, restoreit.stop)
+
+        restoreit.run()
+
+        while True:
+            if restoreit.thread_ok():
+                sleep(1)
+            else:
+                break
+    except RuntimeError as e:
+        logging.error(e)
+    except IOError as e:
+        pass # Probably due to the threads stopping
