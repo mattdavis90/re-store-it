@@ -47,7 +47,6 @@ class ReStoreIt(object):
         self._thread = threading.Thread(target=self._runner.run)
         self._thread.start()
 
-        logging.info('Started successfully')
         logging.info('Running...')
 
     def stop(self, signum, frame):
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     log_level = getattr(logging, args.verbose)
-    logger_config = {'level': log_level, 'format':'[%(levelname)s]\t- %(asctime)s - %(message)s'}
+    logger_config = {'level': log_level, 'format':'%(levelname)-7s - %(asctime)s - %(message)s'}
 
     if args.log_file:
         logger_config['filename']=args.log_file
