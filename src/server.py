@@ -165,7 +165,7 @@ class _XMLRPCServer(object):
 
         backup_file = os.path.join(backup_path, 'version0')
 
-        versions = self.list_versions(client, artifact)
+        versions = self.get_versions(client, artifact)
 
         if len(versions) >= no_versions:
             logging.debug('Client %s - Artifact %s - Removing old version' % (client, artifact))
@@ -194,7 +194,7 @@ class _XMLRPCServer(object):
     def get_version(self, client, artifact, version):
         pass
 
-    def list_versions(self, client, artifact):
+    def get_versions(self, client, artifact):
         backup_path = os.path.join(self._backup_location, client, artifact)
 
         versions = []

@@ -1,6 +1,7 @@
 import os
 import ConfigParser
 import logging
+import re
 import xmlrpclib
 
 
@@ -16,6 +17,22 @@ def get_config(config_file):
     config.readfp(open(config_file))
 
     return config
+
+def get_server_url(config):
+    if not config.has_section('client'):
+        raise RuntimeError("Config file requires a 'client' section")
+
+    if not config.has_option('client', 'server'):
+        raise RuntimeError('Server not specified in config file')
+
+    server_url = config.get('client', 'server')
+
+    regex = '^http://.*:\d+/$'
+
+    if not re.search(regex, server_url):
+        raise RuntimeError('Server should be in the format http://127.0.0.1:9001/')
+
+    return server_url
 
 def wrap_xmlrpc(func, *args, **kwargs):
     try:

@@ -9,7 +9,7 @@ from socket import gethostname
 from time import sleep
 
 from mode import Mode
-from helper import get_config, wrap_xmlrpc
+from helper import get_config, get_server_url, wrap_xmlrpc
 
 
 def _tdelta(timestring):
@@ -28,18 +28,7 @@ class Client(Mode):
 
         config = get_config(args.config_file)
 
-        if not config.has_section('client'):
-            raise RuntimeError("Config file requires a 'client' section")
-
-        if not config.has_option('client', 'server'):
-            raise RuntimeError('Server not specified in config file')
-
-        server_url = config.get('client', 'server')
-
-        regex = '^http://.*:\d+/$'
-
-        if not re.search(regex, server_url):
-            raise RuntimeError('Server should be in the format http://127.0.0.1:9001/')
+        server_url = get_server_url(config)
 
         self._proxy = xmlrpclib.ServerProxy(server_url)
         self._hostname = gethostname()
@@ -56,8 +45,6 @@ class Client(Mode):
         logging.debug('Starting XMLRPC client')
 
         self._running.set()
-
-        config = None
 
         config = wrap_xmlrpc(self._proxy.get_artifacts, self._hostname)
 

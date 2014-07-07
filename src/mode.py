@@ -20,3 +20,11 @@ class Mode(object):
     @abstractmethod
     def _initialise(self):
         return
+
+    @abstractmethod
+    def run(self):
+        return
+
+    @abstractmethod
+    def stop(self):
+        return

@@ -48,8 +48,6 @@ class ReStoreIt(object):
         self._thread = threading.Thread(target=self._runner.run)
         self._thread.start()
 
-        logging.info('Running...')
-
     def stop(self, signum, frame):
         logging.info('Stopping re-store-it')
 
