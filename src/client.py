@@ -8,16 +8,9 @@ from datetime import datetime, timedelta
 from socket import gethostname
 from time import sleep
 
+from mode import Mode
+from helper import get_config, wrap_xmlrpc
 
-def wrap_xmlrpc(func, *args, **kwargs):
-    try:
-        return func(*args, **kwargs)
-    except xmlrpclib.Error as err:
-        logging.error('There was an XMLRPC error: %s' % err)
-    except Exception:
-        logging.error('Unable to connect to XMLRPC server')
-
-    return None
 
 def _tdelta(timestring):
     regex = "^((?P<weeks>\d+)w ?)?((?P<days>\d+)d ?)?((?P<hours>\d+)h ?)?((?P<minutes>\d+)m ?)?((?P<seconds>\d+)s ?)?$"
@@ -29,9 +22,11 @@ def _tdelta(timestring):
     return timedelta(**kwargs)
 
 
-class ClientMode(object):
-    def __init__(self, config):
+class Client(Mode):
+    def _initialise(self, args):
         logging.debug('Starting client mode checks on config file')
+
+        config = get_config(args.config_file)
 
         if not config.has_section('client'):
             raise RuntimeError("Config file requires a 'client' section")
@@ -53,6 +48,9 @@ class ClientMode(object):
         self._running.clear()
 
         logging.debug('Client checks passed')
+
+    def _add_arguments(self):
+        self._parser.add_argument('config_file', metavar='CONFIGFILE')
 
     def run(self):
         logging.debug('Starting XMLRPC client')

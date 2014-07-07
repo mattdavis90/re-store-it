@@ -2,44 +2,45 @@
 
 import argparse
 import sys
-import os
+import importlib
 import logging
-import ConfigParser
 import signal
 import threading
 from time import sleep
 
-from servermode import ServerMode
-from clientmode import ClientMode
-
-VERSION = 'v0.1.0'
+VERSION = 'v1.0.0'
 
 class ReStoreIt(object):
-    def __init__(self, config_file):
-        self._config = ConfigParser.ConfigParser()
+    def __init__(self, argv):
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + VERSION)
+        parser.add_argument('-v', '--verbose', action='store_const', default='INFO', const='DEBUG')
+        parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE')
+        parser.add_argument('mode', choices=['server', 'client', 'list', 'restore'])
+
+        args, unknown = parser.parse_known_args(argv)
+
+        self._mode = args.mode
+
+        log_level = getattr(logging, args.verbose)
+        logger_config = {'level': log_level, 'format':'[%(levelname)-7s] - %(asctime)s - %(message)s'}
+
+        if args.log_file:
+            logger_config['filename'] = args.log_file
         
-        logging.debug('Loading config file')
+        logging.basicConfig(**logger_config)
 
-        self._config.readfp(open(config_file))
+        if args.log_file:
+            logging.info('-' * 20)
 
-        logging.debug('Performing basic check on config file')
+        logging.info('Starting re-store-it')
 
-        if not self._config.has_section('general'):
-            raise RuntimeError("Config file requires a 'general' section")
-
-        if not self._config.has_option('general', 'mode'):
-            raise RuntimeError('Run mode not specified in config file')
-
-        self._mode = self._config.get('general', 'mode')
-        
-        if self._mode == 'server':
-            self._runner = ServerMode(self._config)
-        elif self._mode == 'client':
-            self._runner = ClientMode(self._config)
-        else:
-            raise RuntimeError('Invalid run mode in config file')
-
-        logging.debug('Basic config checks passed')
+        try:
+            module = importlib.import_module(self._mode)
+            ModeClass = getattr(module, self._mode.capitalize())
+            self._runner = ModeClass(parser, argv)
+        except AttributeError:
+            raise RuntimeError('Unknown mode %s' % self._mode)
 
     def run(self):
         logging.info('Starting re-store-it in %s mode' % self._mode)
@@ -62,29 +63,8 @@ class ReStoreIt(object):
         return self._thread.is_alive()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('-v', '--verbose', action='store_const', const='DEBUG', default='INFO', help='enable verbose output')
-    parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE', help='specify a log file. Default: stdout')
-    parser.add_argument('config_file', metavar='CONFIGFILE', help='the config file to use')
-
-    args = parser.parse_args()
-
-    log_level = getattr(logging, args.verbose)
-    logger_config = {'level': log_level, 'format':'%(levelname)-7s - %(asctime)s - %(message)s'}
-
-    if args.log_file:
-        logger_config['filename']=args.log_file
-    
-    logging.basicConfig(**logger_config)
-
-    if not os.path.exists(args.config_file):
-        logging.error('Config file not found')
-        sys.exit(1)
-
     try:
-        restoreit = ReStoreIt(args.config_file)
+        restoreit = ReStoreIt(sys.argv[1:])
 
         signal.signal(signal.SIGINT, restoreit.stop)
         signal.signal(signal.SIGTERM, restoreit.stop)

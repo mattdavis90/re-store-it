@@ -4,18 +4,23 @@ import os
 from DocXMLRPCServer import DocXMLRPCServer
 from DocXMLRPCServer import DocXMLRPCRequestHandler
 
+from mode import Mode
+from helper import get_config
 
-class ServerMode(object):
-    def __init__(self, config):
+
+class Server(Mode):
+    def _initialise(self, args):
         logging.debug('Starting server mode checks on config file')
+        
+        config = get_config(args.config_file)
 
         self._clients = {}
 
         self._backup_location = ''
         self._port = 9001
 
-        if config.has_option('general', 'backup_location'):
-            self._backup_location = config.get('general', 'backup_location')
+        if config.has_option('server', 'backup_location'):
+            self._backup_location = config.get('server', 'backup_location')
 
             if not os.path.isdir(self._backup_location):
                 logging.warn("Backup location '%s' does not exist, attempting to create it" % self._backup_location)
@@ -27,16 +32,16 @@ class ServerMode(object):
         else:
             raise RuntimeError('Backup location not specified in config file')
 
-        if not config.has_option('general', 'port'):
+        if not config.has_option('server', 'port'):
             logging.warn('No port specified, using 9001')
         else:
             try:
-                self._port = int(config.get('general', 'port'))
+                self._port = int(config.get('server', 'port'))
             except:
                 raise RuntimeError('Server port must be an integer')
 
         for section in config.sections():
-            if not section == 'general':
+            if not section == 'server':
                 logging.debug('Found a client: %s' % section)
 
                 if not config.has_option(section, 'artifacts'):
@@ -112,6 +117,9 @@ class ServerMode(object):
             raise RuntimeError('No clients specified')
 
         self._server = None
+
+    def _add_arguments(self):
+        self._parser.add_argument('config_file', metavar='CONFIGFILE')
 
     def run(self):
         logging.debug('Starting XMLRPC server')
