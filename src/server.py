@@ -1,6 +1,7 @@
 import logging
 import re
 import os
+import xmlrpclib
 from DocXMLRPCServer import DocXMLRPCServer
 from DocXMLRPCServer import DocXMLRPCRequestHandler
 
@@ -192,9 +193,33 @@ class _XMLRPCServer(object):
         return True
         
     def get_version(self, client, artifact, version):
-        pass
+        if not client in self._clients:
+            raise RuntimeError('Client not found')
+
+        if not artifact in self._clients[client]:
+            raise RuntimeError('Artifact not found')
+
+        filename = self._clients[client][artifact]['filename']
+        restore_command = self._clients[client][artifact]['restore_command']
+
+        if not version.startswith('version'):
+            version = 'version' + version
+
+        version_path = os.path.join(self._backup_location, client, artifact, version)
+
+        if os.path.isfile(version_path):
+            logging.info('Client %s - Downloaded artifact %s, %s' % (client, artifact, version))
+
+            with open(version_path, 'rb') as handle:
+                data = xmlrpclib.Binary(handle.read())
+
+            return (filename, restore_command, data)
+        else:
+            raise RuntimeError('That version doens\'t exist')
 
     def get_versions(self, client, artifact):
+        logging.info('Client %s - Requested versions for artifact %s' % (client, artifact))
+
         backup_path = os.path.join(self._backup_location, client, artifact)
 
         versions = []

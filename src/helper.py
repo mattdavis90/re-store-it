@@ -37,8 +37,8 @@ def get_server_url(config):
 def wrap_xmlrpc(func, *args, **kwargs):
     try:
         return func(*args, **kwargs)
-    except xmlrpclib.Error as err:
-        logging.error('There was an XMLRPC error: %s' % err)
+    except xmlrpclib.Fault as err:
+        logging.error('There was an XMLRPC error: %s' % err.faultString)
     except Exception:
         logging.error('Unable to connect to XMLRPC server')
 
